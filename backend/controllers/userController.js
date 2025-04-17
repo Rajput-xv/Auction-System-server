@@ -40,46 +40,45 @@ const registerUser = async (req, res) => {
 };
 
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
+	const { email, password } = req.body;
 
-    try {
-        if (!email || !password) {
-            return res.status(400).json({ message: "All fields are required" });
+	try {
+		if (!email || !password) {
+			return res.status(400).json({ message: "All fields are required" });
 		}
 
-        const user = await User.findOne({ email });
+		const user = await User.findOne({ email });
 
-        if (!user) {
-            return res.status(400).json({ message: "User doesn't exist" });
-        }
+		if (!user) {
+			return res.status(400).json({ message: "User doesn't exist" });
+		}
 
-        const isMatch = await bcrypt.compare(password, user.password);
+		const isMatch = await bcrypt.compare(password, user.password);
 
-        if (!isMatch) {
-            return res.status(400).json({ message: "Invalid password" });
-        }
+		if (!isMatch) {
+			return res.status(400).json({ message: "Invalid password" });
+		}
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-            expiresIn: "1d",
-        });
+		const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+			expiresIn: "1d",
+		});
 
-        // Set the cookie with SameSite=None and Secure attributes
-        res.cookie("jwt", token, {
-            httpOnly: true,
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            sameSite: "None", // Allows cross-origin cookies
-            secure: true, // Ensures cookies are sent over HTTPS
-        });
+		res.cookie("jwt", token, {
+			httpOnly: false,
+			expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+			sameSite: "none",
+			secure: true,
+		});
 
-        res.status(200).json({
-            id: user._id,
-            username: user.username,
-            email: user.email,
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal server error" });
-    }
+		res.status(200).json({
+			id: user._id,
+			username: user.username,
+			email: user.email,
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ message: "Internal server error" });
+	}
 };
 
 const getProfile = async (req, res) => {
