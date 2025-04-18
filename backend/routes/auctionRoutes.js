@@ -13,9 +13,9 @@ const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
 
 router.route("/").get(getAuctionItems).post(authMiddleware, createAuctionItem);
-router.post("/user", authMiddleware, getAuctionItemsByUser);
+router.get("/user", authMiddleware, getAuctionItemsByUser);
 router.get("/winner/:id", authMiddleware, getAuctionWinner);
-router.post("/won", authMiddleware, getAuctionsWonByUser);
+router.get("/won", authMiddleware, getAuctionsWonByUser);
 
 router
 	.route("/:id")

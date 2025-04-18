@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/", authMiddleware, placeBid);
 router.get("/:auctionItemId", authMiddleware, getBidHistory);
-router.post("/user", authMiddleware, getBidsByUser);
+router.get("/user", authMiddleware, getBidsByUser);
 
 
 module.exports = router;

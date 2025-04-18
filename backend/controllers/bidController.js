@@ -79,7 +79,7 @@ const getBidsByUser = async (req, res) => {
 			}
 		});
 
-		let bids = await Bid.find({ userId: id });
+		let bids = await Bid.find({ userId: req.user.id });
 		bids = await Promise.all(
 			bids.map(async (bid) => {
 				const auctionItem = await AuctionItem.findById(

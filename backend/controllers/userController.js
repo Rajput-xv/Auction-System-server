@@ -40,45 +40,61 @@ const registerUser = async (req, res) => {
 };
 
 const loginUser = async (req, res) => {
-	const { email, password } = req.body;
+    const { email, password } = req.body;
 
-	try {
-		if (!email || !password) {
-			return res.status(400).json({ message: "All fields are required" });
-		}
+    try {
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({ 
+                success: false,
+                message: "All fields are required" 
+            });
+        }
 
-		const user = await User.findOne({ email });
+        // Get user WITH password (since it's select: false in schema)
+        const user = await User.findOne({ email }).select('+password');
 
-		if (!user) {
-			return res.status(400).json({ message: "User doesn't exist" });
-		}
+        // Generic error message for security
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid email or password"
+            });
+        }
 
-		const isMatch = await bcrypt.compare(password, user.password);
+        // Create token
+        const token = jwt.sign(
+            { id: user._id }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: "1d" }
+        );
 
-		if (!isMatch) {
-			return res.status(400).json({ message: "Invalid password" });
-		}
+        // Set secure cookie
+        res.cookie("jwt", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Set secure only in production
+        	sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
+            path: "/",
+        });
 
-		const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-			expiresIn: "1d",
-		});
+        // Respond without sensitive data
+        res.status(200).json({
+            success: true,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email
+            }
+        });
 
-		res.cookie("jwt", token, {
-			httpOnly: false,
-			expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-			sameSite: "none",
-			secure: true,
-		});
-
-		res.status(200).json({
-			id: user._id,
-			username: user.username,
-			email: user.email,
-		});
-	} catch (error) {
-		console.error(error);
-		res.status(500).json({ message: "Internal server error" });
-	}
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
 };
 
 const getProfile = async (req, res) => {
@@ -90,7 +106,7 @@ const getProfile = async (req, res) => {
 		}
 		const { id } = decoded;
 
-		const user = await User.findById(id);
+		const user = await User.findById(req.user.id);
 		if (!user) {
 			return res.status(404).json({ message: "User not found" });
 		}
@@ -108,7 +124,7 @@ const getProfile = async (req, res) => {
 const logoutUser = async (req, res) => {
 	try {
 		res.cookie("jwt", "", {
-			httpOnly: false,
+			httpOnly: true,
 			secure: true,
 			sameSite: "none",
 			expires: new Date(0),

@@ -14,6 +14,7 @@ app.use(
 		origin: ["https://auction-system-client.vercel.app", "http://localhost:5173"],
 		methods: ["GET", "PUT", "POST", "DELETE"],
 		credentials: true,
+		allowedHeaders: ["Content-Type", "Authorization"]
 	})
 );
 app.use(router);
