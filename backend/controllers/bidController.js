@@ -70,15 +70,7 @@ const getBidHistory = async (req, res) => {
 
 const getBidsByUser = async (req, res) => {
 	try {
-		const token = req.headers.authorization.split(" ")[1];
-
-		const { id } = jwt.decode(token, process.env.JWT_SECRET, (err) => {
-			if (err) {
-				console.log(err);
-				return res.status(500).json({ message: err.message });
-			}
-		});
-
+		// Use req.user from authMiddleware instead of manually decoding token
 		let bids = await Bid.find({ userId: req.user.id });
 		bids = await Promise.all(
 			bids.map(async (bid) => {
@@ -102,6 +94,10 @@ const getBidsByUser = async (req, res) => {
 		res.status(500).json({ message: error.message });
 	}
 };
+
+
+
+
 
 module.exports = {
 	placeBid,

@@ -99,13 +99,7 @@ const loginUser = async (req, res) => {
 
 const getProfile = async (req, res) => {
 	try {
-		const token = req.headers.authorization.split(" ")[1];
-		const decoded = jwt.decode(token, process.env.JWT_SECRET);
-		if (!decoded) {
-			return res.status(401).json({ message: "Invalid token" });
-		}
-		const { id } = decoded;
-
+		// Use req.user from authMiddleware instead of manually decoding token
 		const user = await User.findById(req.user.id);
 		if (!user) {
 			return res.status(404).json({ message: "User not found" });

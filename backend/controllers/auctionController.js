@@ -47,14 +47,8 @@ const getAuctionItemById = async (req, res) => {
 
 const getAuctionItemsByUser = async (req, res) => {
 	try {
-		const token = req.headers.authorization.split(" ")[1];
-		const { id } = jwt.decode(token, process.env.JWT_SECRET, (err) => {
-			if (err) {
-				console.log(err);
-				return res.status(500).json({ message: err.message });
-			}
-		});
-		const auctionItems = await AuctionItem.find({ createdBy: id });
+		// Use req.user from authMiddleware instead of manually decoding token
+		const auctionItems = await AuctionItem.find({ createdBy: req.user.id });
 		res.status(200).json({
 			auctionItems,
 		});
@@ -110,12 +104,11 @@ const deleteAuctionItem = async (req, res) => {
 			return res.status(403).json({ message: "Unauthorized action" });
 		}
 
-		const bids = await Bid.find({ auctionItemId: id });
-		for (const bid of bids) {
-			await bid.remove();
-		}
+		// Delete associated bids using deleteMany instead of remove
+		await Bid.deleteMany({ auctionItemId: id });
 
-		await auctionItem.remove();
+		// Use deleteOne instead of remove
+		await AuctionItem.deleteOne({ _id: id });
 
 		res.json({ message: "Auction item removed" });
 	} catch (error) {
@@ -167,9 +160,8 @@ const getAuctionWinner = async (req, res) => {
 
 const getAuctionsWonByUser = async (req, res) => {
 	try {
-		const token = req.headers.authorization.split(" ")[1];
-		const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-		const { id } = decodedToken;
+		// Use req.user from authMiddleware instead of manually decoding token
+		const id = req.user.id;
 
 		const bidsByUser = await Bid.find({ userId: id });
 		const auctionIds = bidsByUser.map((bid) => bid.auctionItemId);
