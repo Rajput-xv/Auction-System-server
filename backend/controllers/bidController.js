@@ -68,43 +68,39 @@ const getBidHistory = async (req, res) => {
 	}
 };
 
-// Update getBidsByUser
 const getBidsByUser = async (req, res) => {
-    try {
-        const bids = await Bid.find({ userId: req.user.id });
-        const enhancedBids = await Promise.all(
-            bids.map(async (bid) => {
-                try {
-                    const auctionItem = await AuctionItem.findById(bid.auctionItemId);
-                    if (!auctionItem) {
-                        return {
-                            ...bid.toObject(),
-                            auctionItem: null
-                        };
-                    }
-                    return {
-                        ...bid.toObject(),
-                        auctionItem: {
-                            _id: auctionItem._id,
-                            title: auctionItem.title,
-                            description: auctionItem.description,
-                            endDate: auctionItem.endDate
-                        }
-                    };
-                } catch (error) {
-                    console.error(`Error processing bid ${bid._id}:`, error);
-                    return {
-                        ...bid.toObject(),
-                        auctionItem: null
-                    };
-                }
-            })
-        );
-        res.status(200).json({ bids: enhancedBids });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error fetching bids" });
-    }
+	try {
+		const token = req.headers.authorization.split(" ")[1];
+
+		const { id } = jwt.decode(token, process.env.JWT_SECRET, (err) => {
+			if (err) {
+				console.log(err);
+				return res.status(500).json({ message: err.message });
+			}
+		});
+
+		let bids = await Bid.find({ userId: req.user.id });
+		bids = await Promise.all(
+			bids.map(async (bid) => {
+				const auctionItem = await AuctionItem.findById(
+					bid.auctionItemId
+				);
+				const bidObject = bid.toObject();
+				delete bidObject.auctionItemId;
+				return {
+					...bidObject,
+					auctionItem,
+				};
+			})
+		);
+
+		res.status(200).json({
+			bids,
+		});
+	} catch (error) {
+		console.log(error.message);
+		res.status(500).json({ message: error.message });
+	}
 };
 
 module.exports = {

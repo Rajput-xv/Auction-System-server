@@ -3,21 +3,18 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const cors = require("cors");
 const router = express.Router();
-const cookieParser = require('cookie-parser');
 
 dotenv.config();
 connectDB();
 
 const app = express();
 app.use(express.json());
-app.use(cookieParser());
 app.use(
 	cors({
 		origin: ["https://auction-system-client.vercel.app", "http://localhost:5173"],
 		methods: ["GET", "PUT", "POST", "DELETE"],
 		credentials: true,
-		allowedHeaders: ["Content-Type", "Authorization"],
-		exposedHeaders: ['set-cookie']
+		allowedHeaders: ["Content-Type", "Authorization"]
 	})
 );
 app.use(router);

@@ -3,12 +3,17 @@ const User = require("../models/User");
 
 const authMiddleware = async (req, res, next) => {
     try {
+        // 1. Check for token in multiple locations
         let token;
-        if (req.cookies?.jwt) {
-        token = req.cookies.jwt;
-        }
-        else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        token = req.headers.authorization.split(" ")[1];
+        if (
+            req.headers.authorization &&
+            req.headers.authorization.startsWith("Bearer ")
+        ) {
+            // Extract from Authorization header
+            token = req.headers.authorization.split(" ")[1];
+        } else if (req.cookies?.jwt) {
+            // Extract from HTTP-only cookie
+            token = req.cookies.jwt;
         }
 
         if (!token) {
