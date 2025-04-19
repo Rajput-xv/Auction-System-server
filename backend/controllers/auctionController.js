@@ -4,23 +4,45 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 const createAuctionItem = async (req, res) => {
-	const { title, description, startingBid, endDate } = req.body;
-	const userId = req.user.id;
+    const { title, description, startingBid, endDate } = req.body;
+    const userId = req.user.id;
 
-	try {
-		const newDate = new Date(new Date(endDate).getTime());
-		const auctionItem = await AuctionItem.create({
-			title,
-			description,
-			startingBid,
-			endDate: newDate,
-			createdBy: userId,
-		});
+    // Validation checks
+    if (!title || !description || !startingBid || !endDate) {
+        return res.status(400).json({ 
+            message: "All fields are required" 
+        });
+    }
 
-		res.status(201).json(auctionItem);
-	} catch (error) {
-		res.status(500).json({ message: error.message });
-	}
+    if (typeof startingBid !== "number" || startingBid <= 0) {
+        return res.status(400).json({ 
+            message: "Starting bid must be a positive number" 
+        });
+    }
+
+    try {
+        const endDateTime = new Date(endDate);
+        if (isNaN(endDateTime)) {
+            return res.status(400).json({ 
+                message: "Invalid end date format" 
+            });
+        }
+
+        const auctionItem = await AuctionItem.create({
+            title,
+            description,
+            startingBid,
+            endDate: endDateTime,
+            createdBy: userId,
+        });
+
+        res.status(201).json(auctionItem);
+    } catch (error) {
+        console.error("Creation error:", error);
+        res.status(500).json({ 
+            message: error.message || "Server error during auction creation" 
+        });
+    }
 };
 
 const getAuctionItems = async (req, res) => {
@@ -47,22 +69,13 @@ const getAuctionItemById = async (req, res) => {
 
 const getAuctionItemsByUser = async (req, res) => {
 	try {
-		const token = req.headers.authorization.split(" ")[1];
-		const { id } = jwt.decode(token, process.env.JWT_SECRET, (err) => {
-			if (err) {
-				console.log(err);
-				return res.status(500).json({ message: err.message });
-			}
-		});
-		const auctionItems = await AuctionItem.find({ createdBy: id });
-		res.status(200).json({
-			auctionItems,
-		});
+	  const auctionItems = await AuctionItem.find({ createdBy: req.user.id });
+	  res.status(200).json({ auctionItems });
 	} catch (error) {
-		console.log(error.message);
-		res.status(500).json({ message: error.message });
+	  console.log(error.message);
+	  res.status(500).json({ message: error.message });
 	}
-};
+  };
 
 const updateAuctionItem = async (req, res) => {
 	const { id } = req.params;
@@ -165,46 +178,37 @@ const getAuctionWinner = async (req, res) => {
 	}
 };
 
+// Update getAuctionsWonByUser
 const getAuctionsWonByUser = async (req, res) => {
-	try {
-		const token = req.headers.authorization.split(" ")[1];
-		const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-		const { id } = decodedToken;
+    try {
+        const bidsByUser = await Bid.find({ userId: req.user.id });
+        const auctionIds = [...new Set(bidsByUser.map(bid => bid.auctionItemId))];
 
-		const bidsByUser = await Bid.find({ userId: id });
-		const auctionIds = bidsByUser.map((bid) => bid.auctionItemId);
+        const wonAuctions = [];
+        for (const auctionId of auctionIds) {
+            const auction = await AuctionItem.findById(auctionId);
+            if (new Date(auction.endDate) > new Date()) continue;
 
-		const uniqueAuctionIds = [...new Set(auctionIds)];
+            const bids = await Bid.find({ auctionItemId: auctionId });
+            const highestBid = bids.reduce((max, bid) => 
+                bid.bidAmount > max.bidAmount ? bid : max, bids[0]
+            );
 
-		let wonAuctions = [];
-
-		for (let i = 0; i < uniqueAuctionIds.length; i++) {
-			const auctionItemId = uniqueAuctionIds[i];
-			const bids = await Bid.find({ auctionItemId });
-			let winningBid = bids.reduce(
-				(max, bid) => (bid.bidAmount > max.bidAmount ? bid : max),
-				bids[0]
-			);
-
-			const auctionItem = await AuctionItem.findById(auctionItemId);
-			const isAuctionEnded =
-				new Date(auctionItem.endDate) <= new Date(Date.now());
-
-			if (isAuctionEnded && winningBid.userId.toString() === id) {
-				wonAuctions.push({
-					auctionId: auctionItemId,
-					title: auctionItem.title,
-					description: auctionItem.description,
-					winningBid: winningBid.bidAmount,
-					endDate: auctionItem.endDate,
-				});
-			}
-		}
-		res.status(200).json({ wonAuctions });
-	} catch (error) {
-		console.log(error.message);
-		res.status(500).json({ message: error.message });
-	}
+            if (highestBid.userId.toString() === req.user.id) {
+                wonAuctions.push({
+                    auctionId,
+                    title: auction.title,
+                    description: auction.description,
+                    winningBid: highestBid.bidAmount,
+                    endDate: auction.endDate
+                });
+            }
+        }
+        res.status(200).json({ wonAuctions });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error fetching won auctions" });
+    }
 };
 
 module.exports = {
